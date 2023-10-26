@@ -1,0 +1,176 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract CorporateVotingDAO {
+    // Define the token for voting
+    IERC20 public votingToken;
+    
+    // Define the corporate decisions to be voted on
+    struct Decision {
+        uint256 id;
+        string description;
+        uint256 forVotes;
+        uint256 againstVotes;
+        bool isOpen;
+    }
+
+    Decision[] public decisions;
+    address public admin;
+
+    // Mapping of addresses to the number of tokens they hold
+    mapping(address => uint256) public tokenBalances;
+
+    constructor(address _votingToken) {
+        votingToken = IERC20(_votingToken);
+        admin = msg.sender;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only the admin can perform this action.");
+        _;
+    }
+
+    modifier decisionExists(uint256 _decisionId) {
+        require(_decisionId < decisions.length, "Decision does not exist.");
+        _;
+    }
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract CorporateVotingDAO {
+    // Define the token for voting
+    IERC20 public votingToken;
+    
+    // Define the corporate decisions to be voted on
+    struct Decision {
+        uint256 id;
+        string description;
+        uint256 forVotes;
+        uint256 againstVotes;
+        bool isOpen;
+    }
+
+    Decision[] public decisions;
+    address public admin;
+
+    // Mapping of addresses to the number of tokens they hold
+    mapping(address => uint256) public tokenBalances;
+
+    // Mapping of members to their voting power
+    mapping(address => uint256) public votingPower;
+
+    // Mapping to track member voting for a decision
+    mapping(uint256 => mapping(address => bool)) public hasVoted;
+
+    constructor(address _votingToken) {
+        votingToken = IERC20(_votingToken);
+        admin = msg.sender;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only the admin can perform this action.");
+        _;
+    }
+
+    modifier decisionExists(uint256 _decisionId) {
+        require(_decisionId < decisions.length, "Decision does not exist.");
+        _;
+    }
+
+    function createDecision(string memory _description) public onlyAdmin {
+        uint256 decisionId = decisions.length;
+        decisions.push(Decision({
+            id: decisionId,
+            description: _description,
+            forVotes: 0,
+            againstVotes: 0,
+            isOpen: true
+        }));
+    }
+
+    function assignVotingPower(address _member, uint256 _power) public onlyAdmin {
+        votingPower[_member] = _power;
+    }
+
+    function vote(uint256 _decisionId, uint256 _amount, bool _voteFor) public decisionExists(_decisionId) {
+        Decision storage decision = decisions[_decisionId];
+        require(decision.isOpen, "Voting for this decision is closed");
+        require(_amount > 0, "Amount must be greater than zero");
+        require(tokenBalances[msg.sender] >= _amount, "Insufficient tokens");
+        require(votingPower[msg.sender] >= _amount, "Insufficient voting power");
+
+        // Ensure a member can vote only once for a decision
+        require(!hasVoted[_decisionId][msg.sender], "You have already voted for this decision");
+
+        // Transfer tokens from the voter to the contract
+        votingToken.transferFrom(msg.sender, address(this), _amount);
+
+        if (_voteFor) {
+            decision.forVotes += _amount;
+        } else {
+            decision.againstVotes += _amount;
+        }
+
+        // Mark the member as voted for this decision
+        hasVoted[_decisionId][msg.sender] = true;
+    }
+
+    function closeDecision(uint256 _decisionId) public decisionExists(_decisionId) onlyAdmin {
+        Decision storage decision = decisions[_decisionId];
+        decision.isOpen = false;
+    }
+
+    function getDecisionResult(uint256 _decisionId) public view decisionExists(_decisionId) returns (int256) {
+        Decision storage decision = decisions[_decisionId];
+        if (!decision.isOpen) {
+            return int256(decision.forVotes - decision.againstVotes);
+        }
+        return 0;
+    }
+}
+
+    function createDecision(string memory _description) public onlyAdmin {
+        uint256 decisionId = decisions.length;
+        decisions.push(Decision({
+            id: decisionId,
+            description: _description,
+            forVotes: 0,
+            againstVotes: 0,
+            isOpen: true
+        }));
+    }
+
+    function vote(uint256 _decisionId, uint256 _amount, bool _voteFor) public decisionExists(_decisionId) {
+        Decision storage decision = decisions[_decisionId];
+        require(decision.isOpen, "Voting for this decision is closed.");
+        require(_amount > 0, "Amount must be greater than zero.");
+        require(tokenBalances[msg.sender] >= _amount, "Insufficient tokens.");
+        
+        // Transfer tokens from the voter to the contract
+        votingToken.transferFrom(msg.sender, address(this), _amount);
+
+        if (_voteFor) {
+            decision.forVotes += _amount;
+        } else {
+            decision.againstVotes += _amount;
+        }
+    }
+
+    function closeDecision(uint256 _decisionId) public decisionExists(_decisionId) onlyAdmin {
+        Decision storage decision = decisions[_decisionId];
+        decision.isOpen = false;
+    }
+
+    function getDecisionResult(uint256 _decisionId) public view decisionExists(_decisionId) returns (int256) {
+        Decision storage decision = decisions[_decisionId];
+        if (!decision.isOpen) {
+            return int256(decision.forVotes - decision.againstVotes);
+        }
+        return 0;
+    }
+}
+
+interface IERC20 {
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+}
