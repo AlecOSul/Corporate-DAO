@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract RentalDAO {
+    // Define the struct for a rental
+    struct Rental {
+        address lotOwner;
+        uint256 yieldAmount;
+        uint256 rentalPrice;
+        bool isRented;
+    }
+
+    // Array to hold all rentals
+    Rental[] public rentals;
+
+    // Mapping to track the approval of rentals by DAO controllers
+    mapping(uint256 => mapping(address => bool)) public rentalApprovals;
+
+    // Event emitted when a rental is created
+    event RentalCreated(uint256 rentalId, address lotOwner, uint256 yieldAmount, uint256 rentalPrice);
+
+    // Event emitted when a rental is approved by a DAO controller
+    event RentalApproved(uint256 rentalId, address daoController);
+
+    // Function to create a new rental
+    function createRental(uint256 yieldAmount, uint256 rentalPrice) external returns (uint256) {
+        // Create a new rental
+        Rental memory newRental = Rental({
+            lotOwner: msg.sender,
+            yieldAmount: yieldAmount,
+            rentalPrice: rentalPrice,
+            isRented: false
+        });
+
+        // Add the new rental to the rentals array
+        rentals.push(newRental);
+
+        // Emit the RentalCreated event
+        emit RentalCreated(rentals.length - 1, msg.sender, yieldAmount, rentalPrice);
+
+        // Return the rental ID
+        return rentals.length - 1;
+    }
+
+    // Function to approve a rental
+    function approveRental(uint256 rentalId) external {
+        // Check that the rental ID is valid
+        require(rentalId < rentals.length, "Invalid rental ID");
+
+        // Check that the rental has not already been rented
+        require(!rentals[rentalId].isRented, "Rental already rented");
+
+        // Record the approval of the rental by the DAO controller
+        rentalApprovals[rentalId][msg.sender] = true;
+
+        // Emit the RentalApproved event
+        emit RentalApproved(rentalId, msg.sender);
+    }
+}
